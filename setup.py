@@ -33,7 +33,7 @@ setup(
     python_requires='>=3.6',
     entry_points={
     'console_scripts': [
-        'ldaprelayscan=LdapRelayScan:main',
+        'ldaprelayscan=ldaprelayscan:main',
         ]
     }
 )
