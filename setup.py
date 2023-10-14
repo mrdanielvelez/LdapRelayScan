@@ -29,7 +29,6 @@ setup(
         "wcwidth==0.2.6",
         "winacl==0.1.7"
     ],
-    packages="",
     python_requires='>=3.6',
     entry_points={
     'console_scripts': [
