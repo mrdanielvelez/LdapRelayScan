@@ -6,7 +6,7 @@ setup(
     description="Check for LDAP protections regarding the relay of NTLM authentication.",
     long_description="README.md",
     long_description_content_type="text/markdown",
-    url="https://github.com/zyn3rgy/LdapRelayScan",
+    url="https://github.com/mrdanielvelez/LdapRelayScan",
     install_requires=[
         "asn1crypto==1.5.1",
         "asyauth==0.0.13",
