@@ -44,6 +44,94 @@ def run_ldaps_noEPA(inputUser, inputPassword, dcTarget):
         print("\n   [!] "+ dcTarget+" -", str(e))
         print("        * Ensure DNS is resolving properly, and that you can reach LDAPS on this host")
 
+
+def main():
+    parser = argparse.ArgumentParser(
+        add_help=True, description="Checks Domain Controllers for LDAP authentication protection."
+                                    + " You can check for only LDAPS protections (channel binding), this is done unauthenticated. "
+                                    + "Alternatively you can check for both LDAPS and LDAP (server signing) protections. This requires a successful LDAP bind.")
+    parser.add_argument('-method', choices=['LDAPS','BOTH'], default='LDAPS', metavar="method", action='store',
+                        help="LDAPS or BOTH - LDAPS checks for channel binding, BOTH checks for LDAP signing and LDAP channel binding [authentication required]")
+    parser.add_argument('-dc-ip', required=True, action='store',
+                        help='DNS Nameserver on network. Any DC\'s IPv4 address should work.')
+    parser.add_argument('-u', default='guest', metavar='username',action='store',
+                        help='Domain username value.')
+    parser.add_argument('-timeout', default=10, metavar='timeout',action='store', type=int,
+                        help='The timeout for MSLDAP client connection.')
+    parser.add_argument('-p', default='defaultpass', metavar='password',action='store',
+                        help='Domain username value.')
+    parser.add_argument('-nthash', metavar='nthash',action='store',
+                        help='NT hash of password')
+    options = parser.parse_args()
+    domainUser = options.u
+
+    password = options.p
+
+    if len(sys.argv) == 1:
+        parser.print_help()
+        sys.exit(1)
+    
+    if options.dc_ip == None:
+        print("-dc-ip is required")
+        exit()
+    if options.method == 'BOTH':
+        if domainUser == 'guest':
+            print("[i] Using BOTH method requires a username parameter")
+            exit()
+    if options.method == 'BOTH' and options.u != 'guest' and (options.p != 'defaultpass' or options.nthash != None):
+        if options.p == 'defaultpass' and options.nthash != None:
+            password = "aad3b435b51404eeaad3b435b51404ee:" + options.nthash
+        elif options.p != 'defaultpass' and options.nthash == None:
+            password = options.p
+        else:
+            print("Something incorrect while providing credential material options")
+
+    if options.method =='BOTH' and options.p == 'defaultpass' and options.nthash == None:   
+        password = getpass.getpass(prompt="Password: ")
+    fqdn = InternalDomainFromAnonymousLdap(options.dc_ip)
+
+
+    dcList = ResolveDCs(options.dc_ip, fqdn)
+    print("\n~Domain Controllers identified~")
+    for dc in dcList:
+        print("   " + dc)
+
+    print("\n~Checking DCs for LDAP NTLM relay protections~")
+    username = fqdn + "\\" + domainUser
+    #print("VALUES AUTHING WITH:\nUser: "+domainUser+"\nPass: " +password + "\nDomain:  "+fqdn)
+
+    for dc in dcList:
+        print("   " + dc)
+        try:
+            if options.method == "BOTH":
+                ldapIsProtected = run_ldap(username, password, dc)
+                if ldapIsProtected == False:
+                    print("      [+] (LDAP)  SERVER SIGNING REQUIREMENTS NOT ENFORCED! ")
+                elif ldapIsProtected == True:
+                    print("      [-] (LDAP)  server enforcing signing requirements")
+            if DoesLdapsCompleteHandshake(dc) == True:
+                ldapsChannelBindingAlwaysCheck = run_ldaps_noEPA(username, password, dc)
+                ldapsChannelBindingWhenSupportedCheck = asyncio.run(run_ldaps_withEPA(username, password, dc, fqdn, options.timeout))
+                if ldapsChannelBindingAlwaysCheck == False and ldapsChannelBindingWhenSupportedCheck == True:
+                    print("      [-] (LDAPS) channel binding is set to \"when supported\" - this")
+                    print("                  may prevent an NTLM relay depending on the client's")
+                    print("                  support for channel binding.")
+                elif ldapsChannelBindingAlwaysCheck == False and ldapsChannelBindingWhenSupportedCheck == False:
+                        print("      [+] (LDAPS) CHANNEL BINDING SET TO \"NEVER\"! PARTY TIME!")
+                elif ldapsChannelBindingAlwaysCheck == True:
+                    print("      [-] (LDAPS) channel binding set to \"required\", no fun allowed")
+                else:
+                    print("\nSomething went wrong...")
+                    print("For troubleshooting:\nldapsChannelBindingAlwaysCheck - " +str(ldapsChannelBindingAlwaysCheck)+"\nldapsChannelBindingWhenSupportedCheck: "+str(ldapsChannelBindingWhenSupportedCheck))
+                    exit()
+                #print("For troubleshooting:\nldapsChannelBindingAlwaysCheck - " +str(ldapsChannelBindingAlwaysCheck)+"\nldapsChannelBindingWhenSupportedCheck: "+str(ldapsChannelBindingWhenSupportedCheck))
+                    
+            elif DoesLdapsCompleteHandshake(dc) == False:
+                print("      [!] "+dc+ " - cannot complete TLS handshake, cert likely not configured")
+        except Exception as e:
+            print("      [-] ERROR: " + str(e))
+    print()
+
 #Conduct a bind to LDAPS with channel binding supported
 #but intentionally miscalculated. In the case that and
 #LDAPS bind has without channel binding supported has occured,
@@ -165,91 +253,5 @@ def run_ldap(inputUser, inputPassword, dcTarget):
         return False #because LDAP server signing requirements are not enforced
         exit()
 
-
-
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(
-        add_help=True, description="Checks Domain Controllers for LDAP authentication protection."
-                                    + " You can check for only LDAPS protections (channel binding), this is done unauthenticated. "
-                                    + "Alternatively you can check for both LDAPS and LDAP (server signing) protections. This requires a successful LDAP bind.")
-    parser.add_argument('-method', choices=['LDAPS','BOTH'], default='LDAPS', metavar="method", action='store',
-                        help="LDAPS or BOTH - LDAPS checks for channel binding, BOTH checks for LDAP signing and LDAP channel binding [authentication required]")
-    parser.add_argument('-dc-ip', required=True, action='store',
-                        help='DNS Nameserver on network. Any DC\'s IPv4 address should work.')
-    parser.add_argument('-u', default='guest', metavar='username',action='store',
-                        help='Domain username value.')
-    parser.add_argument('-timeout', default=10, metavar='timeout',action='store', type=int,
-                        help='The timeout for MSLDAP client connection.')
-    parser.add_argument('-p', default='defaultpass', metavar='password',action='store',
-                        help='Domain username value.')
-    parser.add_argument('-nthash', metavar='nthash',action='store',
-                        help='NT hash of password')
-    options = parser.parse_args()
-    domainUser = options.u
-
-    password = options.p
-
-    if len(sys.argv) == 1:
-        parser.print_help()
-        sys.exit(1)
-    
-    if options.dc_ip == None:
-        print("-dc-ip is required")
-        exit()
-    if options.method == 'BOTH':
-        if domainUser == 'guest':
-            print("[i] Using BOTH method requires a username parameter")
-            exit()
-    if options.method == 'BOTH' and options.u != 'guest' and (options.p != 'defaultpass' or options.nthash != None):
-        if options.p == 'defaultpass' and options.nthash != None:
-            password = "aad3b435b51404eeaad3b435b51404ee:" + options.nthash
-        elif options.p != 'defaultpass' and options.nthash == None:
-            password = options.p
-        else:
-            print("Something incorrect while providing credential material options")
-
-    if options.method =='BOTH' and options.p == 'defaultpass' and options.nthash == None:   
-        password = getpass.getpass(prompt="Password: ")
-    fqdn = InternalDomainFromAnonymousLdap(options.dc_ip)
-
-
-    dcList = ResolveDCs(options.dc_ip, fqdn)
-    print("\n~Domain Controllers identified~")
-    for dc in dcList:
-        print("   " + dc)
-
-    print("\n~Checking DCs for LDAP NTLM relay protections~")
-    username = fqdn + "\\" + domainUser
-    #print("VALUES AUTHING WITH:\nUser: "+domainUser+"\nPass: " +password + "\nDomain:  "+fqdn)
-
-    for dc in dcList:
-        print("   " + dc)
-        try:
-            if options.method == "BOTH":
-                ldapIsProtected = run_ldap(username, password, dc)
-                if ldapIsProtected == False:
-                    print("      [+] (LDAP)  SERVER SIGNING REQUIREMENTS NOT ENFORCED! ")
-                elif ldapIsProtected == True:
-                    print("      [-] (LDAP)  server enforcing signing requirements")
-            if DoesLdapsCompleteHandshake(dc) == True:
-                ldapsChannelBindingAlwaysCheck = run_ldaps_noEPA(username, password, dc)
-                ldapsChannelBindingWhenSupportedCheck = asyncio.run(run_ldaps_withEPA(username, password, dc, fqdn, options.timeout))
-                if ldapsChannelBindingAlwaysCheck == False and ldapsChannelBindingWhenSupportedCheck == True:
-                    print("      [-] (LDAPS) channel binding is set to \"when supported\" - this")
-                    print("                  may prevent an NTLM relay depending on the client's")
-                    print("                  support for channel binding.")
-                elif ldapsChannelBindingAlwaysCheck == False and ldapsChannelBindingWhenSupportedCheck == False:
-                        print("      [+] (LDAPS) CHANNEL BINDING SET TO \"NEVER\"! PARTY TIME!")
-                elif ldapsChannelBindingAlwaysCheck == True:
-                    print("      [-] (LDAPS) channel binding set to \"required\", no fun allowed")
-                else:
-                    print("\nSomething went wrong...")
-                    print("For troubleshooting:\nldapsChannelBindingAlwaysCheck - " +str(ldapsChannelBindingAlwaysCheck)+"\nldapsChannelBindingWhenSupportedCheck: "+str(ldapsChannelBindingWhenSupportedCheck))
-                    exit()
-                #print("For troubleshooting:\nldapsChannelBindingAlwaysCheck - " +str(ldapsChannelBindingAlwaysCheck)+"\nldapsChannelBindingWhenSupportedCheck: "+str(ldapsChannelBindingWhenSupportedCheck))
-                    
-            elif DoesLdapsCompleteHandshake(dc) == False:
-                print("      [!] "+dc+ " - cannot complete TLS handshake, cert likely not configured")
-        except Exception as e:
-            print("      [-] ERROR: " + str(e))
-    print()
+    main()

@@ -11,33 +11,13 @@ The enforcement of channel binding for LDAP over SSL/TLS can be determined from 
 However, to determine if the server-side protection of standard LDAP is enforced (server signing integrity requirements) the clients credential's must first be validated during the LDAP bind. The potential error identifying the enforcement of this protection is identified from an **authenticated** perspective.
 
 
-
 #### TL;DR - LDAPS can be checked unauthenticated, but checking LDAP requires authentication.
 
 ## Installation 
-It is recommended to use either Docker or a Python virtual environment when running this project.
-
-### Docker
-1) Ensure [docker is installed](https://docs.docker.com/engine/install/debian/) on your machine
-2) Clone the repository and change directory
-	- `git clone https://github.com/zyn3rgy/LdapRelayScan.git && cd LdapRelayScan`
-3) Build the Docker container
-	 - `docker build -f docker/Dockerfile -t ldaprelayscan .`
-4) [optionally] Ensure the script executes properly
-	- `docker run ldaprelayscan -h`
-
-### Python Virtual Environment
-1) Ensure [python virtualenv](https://packaging.python.org/en/latest/guides/installing-using-pip-and-virtual-environments/) is installed on your machine
-2) Clone the repository and change directory
-	- `git clone https://github.com/zyn3rgy/LdapRelayScan.git && cd LdapRelayScan`
-3) Create a Python virtual environment for the project
-	- `virtualenv env`
-4) Activate the Python virtual environment
-	- `source venv/bin/activate`
-5) Install exact requirement version dependencies
-	 - `python3 -m pip install -r requirements_exact.txt`
-6) [optionally] Ensure the script executes properly
-	- `python3 LdapRelayScan.py -h`
+```
+python3 -m pip install pipx && python3 -m pipx ensurepath
+python3 -m pipx install git+https://github.com/mrdanielvelez/LdapRelayScan
+```
 
 ## Usage
 
@@ -69,16 +49,6 @@ python3 LdapRelayScan.py -method BOTH -dc-ip 10.0.0.20 -u domainuser1 -nthash e6
 ```
 ![](https://github.com/zyn3rgy/LdapRelayScan/blob/main/img/LDAPS_check.PNG?raw=true)
 ![](https://github.com/zyn3rgy/LdapRelayScan/blob/main/img/BOTH_check.PNG?raw=true)
-
-### Docker Usage Examples
-> **NOTE**: The ability to use SOCKS is passed in using a `PROXY_CONFIG` environment variable. If SOCKS is required, the `--network=host` flag will also need to be used to correctly route traffic. See examples below.
-```
-docker run ldaprelayscan -h
-docker run ldaprelayscan -dc-ip 10.0.0.20
-docker run ldaprelayscan -dc-ip 10.0.0.20 -method BOTH -u domainuser1 -p secretpass
-docker run -e PROXY_CONFIG='socks5 127.0.0.1 9050' --network=host ldaprelayscan -dc-ip 10.0.0.20 -method BOTH -u domainuser1 -p secretpass
-
-```
 
 ## Error-Based Enumeration Specifics
 
