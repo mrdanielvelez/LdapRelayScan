@@ -1,8 +1,14 @@
+## Installation via pipx
+```ruby
+python3 -m pip install pipx && python3 -m pipx ensurepath
+python3 -m pipx install git+https://github.com/mrdanielvelez/LdapRelayScan
+```
 
-# LDAP Relay Scan 
+# LDAP Relay Scan
 A tool to check Domain Controllers for LDAP server protections regarding the relay of NTLM authentication. If you're interested in the specifics of the error-based enumeration, see [below](https://github.com/zyn3rgy/LdapRelayScan#error-based-enumeration-specifics). For details regarding what can be done when you identify a lack of LDAP protections, see the [references section](https://github.com/zyn3rgy/LdapRelayScan#references).
+
 ## Summary
-There are a couple server-side protections when attempting to relay NTLM authentication LDAP on Domain Controllers. The LDAP protections this tools attempts to enumerate include:
+There are two server-side protections when attempting to relay NTLM authentication to LDAP(S) on Domain Controllers. The LDAP protections this tool enumerates include:
  - LDAPS - [channel binding](https://support.microsoft.com/en-us/topic/use-the-ldapenforcechannelbinding-registry-entry-to-make-ldap-authentication-over-ssl-tls-more-secure-e9ecfa27-5e57-8519-6ba3-d2c06b21812e)
  - LDAP - [server signing requirements](https://docs.microsoft.com/en-us/windows/security/threat-protection/security-policy-settings/domain-controller-ldap-server-signing-requirements)
 
@@ -10,14 +16,7 @@ The enforcement of channel binding for LDAP over SSL/TLS can be determined from 
 
 However, to determine if the server-side protection of standard LDAP is enforced (server signing integrity requirements) the clients credential's must first be validated during the LDAP bind. The potential error identifying the enforcement of this protection is identified from an **authenticated** perspective.
 
-
 #### TL;DR - LDAPS can be checked unauthenticated, but checking LDAP requires authentication.
-
-## Installation 
-```
-python3 -m pip install pipx && python3 -m pipx ensurepath
-python3 -m pipx install git+https://github.com/mrdanielvelez/LdapRelayScan
-```
 
 ## Usage
 
@@ -34,13 +33,9 @@ arguments:
   -timeout timeout  The timeout for MSLDAP client connection.
   -p password       Domain username value.
   -nthash nthash    NT hash of password
-
 ```
 
-## Examples
-
-
-### Basic / Virtual Environment Usage Examples
+### Usage Examples
 ```
 python3 LdapRelayScan.py -method LDAPS -dc-ip 10.0.0.20
 python3 LdapRelayScan.py -method BOTH -dc-ip 10.0.0.20 -u domainuser1 
